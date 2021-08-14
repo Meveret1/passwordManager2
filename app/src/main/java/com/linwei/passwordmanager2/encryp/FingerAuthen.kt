@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import android.widget.Toast
 import androidx.core.hardware.fingerprint.FingerprintManagerCompat
 import com.linwei.passwordmanager2.Constant
@@ -26,17 +27,16 @@ import javax.crypto.spec.IvParameterSpec
  *@Date 2021/7/4
  **/
 class FingerAuthen(
-    private val actvity: Activity,
-    private val authenticationCallback: BiometricPrompt.AuthenticationCallback
+    private val actvity: Activity
 ) {
-    private lateinit var keyStore: KeyStore
-    private lateinit var biometricPrompt: BiometricPrompt
-    private var cipher: Cipher? = null
-    val cancellationSignal = CancellationSignal()
-    lateinit var perf: SharedPreferences
-
+    private lateinit var keyStore: KeyStore //密钥库
+    private lateinit var biometricPrompt: BiometricPrompt //指纹模块
+    private var cipher: Cipher? = null //cipher备用
+    val cancellationSignal = CancellationSignal()  //取消指纹识别方法
+    lateinit var perf: SharedPreferences  //保存初始化向量IV
+    private lateinit var authenticationCallback: BiometricPrompt.AuthenticationCallback
     init {
-        keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore = KeyStore.getInstance("AndroidKeyStore")  //取得android密钥库
         keyStore.load(null)
     }
 
@@ -78,12 +78,16 @@ class FingerAuthen(
         )
     }
 
+    /**
+     * 检查是否支持指纹
+     * @return Boolean
+     */
+
     private fun check(): Boolean {
         if (Build.VERSION.SDK_INT < 23) {//小于android6.0是没有指纹支持的
             Constant.ToastUtil(actvity, "系统不支持指纹", Toast.LENGTH_LONG)
             return false
         } else {
-
             val manager = FingerprintManagerCompat.from(actvity)
             val keyguardManager = actvity.getSystemService(KeyguardManager::class.java)
             if (!manager.isHardwareDetected) {
@@ -112,7 +116,7 @@ class FingerAuthen(
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationRequired(false)////每次使用这个密钥，需要指纹验证,为了内部使用
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
         keyGenerator.init(builder.build())
         keyGenerator.generateKey()
@@ -121,7 +125,7 @@ class FingerAuthen(
     /**
      * 初始化加密cipher
      */
-    fun initEncode() {
+    private fun initEncode() {
         val key = keyStore.getKey(Constant.DEFAULT_KEY_NAME, null) as SecretKey
         cipher = Cipher.getInstance(
             KeyProperties.KEY_ALGORITHM_AES + "/"
@@ -134,7 +138,7 @@ class FingerAuthen(
 
     /**
      * 解密时初始化cipher
-     * 解密需要获取iv，iv：对应android密钥库中的一个密钥
+     * 解密需要获取iv，iv：初始化向量
      */
 
     fun initDecode(): Boolean {
@@ -146,16 +150,21 @@ class FingerAuthen(
         )
         perf = actvity.getSharedPreferences("data", Context.MODE_PRIVATE)
         val iv = perf.getString("iv", "")//获取iv值。这里解密之前肯定是加密过一次的
-        return if (!iv.isEmpty()) {
+        return if (iv!!.isNotEmpty()) {
             cipher!!.init(Cipher.DECRYPT_MODE, key, IvParameterSpec(Base64.getDecoder().decode(iv)))
             true
         } else {
             false
         }
-
-
     }
 
+    fun getCipher():Cipher?{
+        return cipher
+    }
+
+    fun setAuthenticationCallback(authenticationCallback:BiometricPrompt.AuthenticationCallback){
+        this.authenticationCallback=authenticationCallback
+    }
     /**
      * 初始化biometricPrompt
      */
@@ -166,7 +175,7 @@ class FingerAuthen(
             .setNegativeButton(
                 "使用密码验证",
                 actvity.mainExecutor,
-                DialogInterface.OnClickListener { dialog, which ->
+                { dialog, which ->
                     Toast.makeText(actvity, "取消验证", Toast.LENGTH_LONG).show()
                 })
             .build()
