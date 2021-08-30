@@ -10,9 +10,4 @@ class MainActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.psactivity_main)
     }
-
-
-
-
-
 }

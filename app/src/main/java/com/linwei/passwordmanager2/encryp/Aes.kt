@@ -1,5 +1,6 @@
 package com.linwei.passwordmanager2.encryp
 import android.util.Log
+import com.linwei.passwordmanager2.Constant
 import java.security.Key
 import java.util.*
 import javax.crypto.Cipher
@@ -35,7 +36,13 @@ class Aes(key: String) {
      */
     fun decrypt(cipherText: String): String {
         cipher.init(Cipher.DECRYPT_MODE, keySpec)
-        val encrypt = cipher.doFinal(Base64.getDecoder().decode(cipherText))//这里将base64的字符串转换成字节数组
+        var encrypt:ByteArray
+        try {
+             encrypt = cipher.doFinal(Base64.getDecoder().decode(cipherText))//这里将base64的字符串转换成字节数组
+        }catch (e:Exception){
+            e.printStackTrace()
+            return Constant.PASSWORD_ERRO
+        }
         return String(encrypt)
     }
 

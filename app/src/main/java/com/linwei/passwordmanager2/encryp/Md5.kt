@@ -30,7 +30,7 @@ object Md5 {
                 // >>> 为逻辑右移，将符号位一起右移
                 strs[k++] = hexDigits[byte0.toInt() and 0xf] // 取字节中低 4 位的数字转换
             }
-            String(strs).substring(8,24) // 换后的结果转换为字符串.toUpperCase()
+            String(strs).substring(8,24) // 16位换后的结果转换为字符串.toUpperCase()
         } catch (e: Exception) {
             null
         }
